@@ -1,0 +1,210 @@
+"""Tap-to-feed-the-T-rex game.
+
+Install once:
+    python -m pip install pygame
+
+Run:
+    python t_rex_chicken_game.py
+
+Click/tap the game area to drop one chicken. The green T. rex runs over,
+attacks it, and earns a point. The mouse is used as touch input on a PC.
+"""
+
+import math
+import sys
+
+import pygame
+
+
+WIDTH, HEIGHT = 1280, 720
+GROUND_TOP = 590
+FPS = 60
+
+SKY = (125, 205, 245)
+GROUND = (62, 157, 68)
+DARK_GROUND = (35, 112, 47)
+REX_GREEN = (35, 180, 76)
+REX_DARK = (18, 116, 45)
+WHITE = (250, 250, 245)
+BLACK = (25, 25, 25)
+RED = (226, 73, 57)
+YELLOW = (250, 192, 49)
+
+
+class Chicken:
+    """A chicken created after a tap, falling until it reaches the ground."""
+
+    radius = 25
+
+    def __init__(self, x):
+        self.x = float(x)
+        self.y = -50.0
+        self.velocity_y = 0.0
+        self.landed = False
+        self.wing_phase = 0.0
+
+    def update(self, dt):
+        self.wing_phase += dt * 12
+        if not self.landed:
+            self.velocity_y += 1700 * dt
+            self.y += self.velocity_y * dt
+            ground_y = GROUND_TOP - self.radius
+            if self.y >= ground_y:
+                self.y = ground_y
+                self.velocity_y = 0
+                self.landed = True
+
+    def draw(self, screen):
+        x, y = int(self.x), int(self.y)
+        # Shadow only after landing.
+        if self.landed:
+            pygame.draw.ellipse(screen, (37, 108, 41), (x - 31, GROUND_TOP - 8, 62, 15))
+
+        # Legs, body, head, beak, wing, and eye.
+        pygame.draw.line(screen, YELLOW, (x - 9, y + 21), (x - 9, y + 37), 4)
+        pygame.draw.line(screen, YELLOW, (x + 9, y + 21), (x + 9, y + 37), 4)
+        pygame.draw.circle(screen, WHITE, (x, y), self.radius)
+        wing_y = y + int(math.sin(self.wing_phase) * 4)
+        pygame.draw.ellipse(screen, (225, 225, 215), (x - 26, wing_y - 5, 25, 21))
+        pygame.draw.circle(screen, WHITE, (x + 15, y - 18), 16)
+        pygame.draw.polygon(screen, YELLOW, [(x + 29, y - 18), (x + 44, y - 11), (x + 29, y - 6)])
+        pygame.draw.circle(screen, BLACK, (x + 20, y - 22), 3)
+        pygame.draw.circle(screen, RED, (x + 14, y - 35), 5)
+
+
+class Rex:
+    """A friendly cartoon T. rex with idle, running and attack states."""
+
+    def __init__(self):
+        self.x = 180.0
+        self.y = GROUND_TOP - 136
+        self.state = "idle"
+        self.target_x = self.x
+        self.state_time = 0.0
+        self.run_phase = 0.0
+        self.facing_right = True
+
+    def start_chase(self, chicken_x):
+        self.target_x = max(80, min(WIDTH - 120, chicken_x - 110))
+        self.facing_right = self.target_x >= self.x
+        self.state = "running"
+        self.state_time = 0.0
+
+    def update(self, dt):
+        self.state_time += dt
+        if self.state == "running":
+            self.run_phase += dt * 18
+            direction = 1 if self.target_x > self.x else -1
+            self.x += direction * 510 * dt
+            if (direction > 0 and self.x >= self.target_x) or (direction < 0 and self.x <= self.target_x):
+                self.x = self.target_x
+                self.state = "attacking"
+                self.state_time = 0.0
+
+    def attack_has_landed(self):
+        return self.state == "attacking" and self.state_time >= 0.33
+
+    def finish_attack(self):
+        if self.state == "attacking" and self.state_time >= 0.95:
+            self.state = "idle"
+            self.state_time = 0.0
+
+    def draw(self, screen):
+        x, y = int(self.x), int(self.y)
+        direction = 1 if self.facing_right else -1
+        leg_swing = int(math.sin(self.run_phase) * 14) if self.state == "running" else 0
+        bite_open = 17 if self.state == "attacking" and self.state_time < 0.42 else 5
+
+        # Shadow and tail.
+        pygame.draw.ellipse(screen, (37, 108, 41), (x - 95, GROUND_TOP - 14, 190, 25))
+        pygame.draw.polygon(screen, REX_DARK, [(x - direction * 35, y + 84), (x - direction * 155, y + 111), (x - direction * 65, y + 47)])
+
+        # Body and legs.
+        pygame.draw.ellipse(screen, REX_GREEN, (x - 70, y + 25, 123, 96))
+        pygame.draw.line(screen, REX_DARK, (x - 29, y + 104), (x - 35 + leg_swing, y + 138), 17)
+        pygame.draw.line(screen, REX_DARK, (x + 25, y + 104), (x + 30 - leg_swing, y + 138), 17)
+        pygame.draw.line(screen, REX_GREEN, (x - 29, y + 103), (x - 35 + leg_swing, y + 138), 12)
+        pygame.draw.line(screen, REX_GREEN, (x + 25, y + 103), (x + 30 - leg_swing, y + 138), 12)
+
+        # Head, jaw, arm and eye. Coordinates are mirrored by choosing head direction.
+        head_x = x + direction * 42
+        pygame.draw.ellipse(screen, REX_GREEN, (head_x - 44, y - 8, 85, 65))
+        pygame.draw.polygon(screen, REX_GREEN, [(head_x + direction * 28, y + 30), (head_x + direction * 59, y + 39), (head_x + direction * 23, y + 48 + bite_open)])
+        pygame.draw.line(screen, REX_DARK, (x + direction * 17, y + 75), (x + direction * 52, y + 90), 10)
+        pygame.draw.circle(screen, WHITE, (head_x + direction * 14, y + 10), 8)
+        pygame.draw.circle(screen, BLACK, (head_x + direction * 16, y + 10), 3)
+        if self.state == "attacking":
+            pygame.draw.polygon(screen, WHITE, [(head_x + direction * 40, y + 31), (head_x + direction * 32, y + 38), (head_x + direction * 40, y + 42)])
+
+
+def draw_background(screen):
+    screen.fill(SKY)
+    pygame.draw.circle(screen, (255, 235, 120), (1110, 105), 54)
+    pygame.draw.ellipse(screen, (250, 250, 250), (120, 95, 175, 48))
+    pygame.draw.ellipse(screen, (250, 250, 250), (250, 125, 145, 42))
+    pygame.draw.rect(screen, GROUND, (0, GROUND_TOP, WIDTH, HEIGHT - GROUND_TOP))
+    pygame.draw.rect(screen, DARK_GROUND, (0, GROUND_TOP, WIDTH, 12))
+    for x in range(20, WIDTH, 100):
+        pygame.draw.line(screen, (92, 195, 81), (x, GROUND_TOP + 20), (x + 8, GROUND_TOP + 4), 4)
+        pygame.draw.line(screen, (92, 195, 81), (x + 8, GROUND_TOP + 20), (x + 11, GROUND_TOP + 3), 4)
+
+
+def main():
+    pygame.init()
+    pygame.display.set_caption("T-Rex Chicken Attack")
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    clock = pygame.time.Clock()
+    big_font = pygame.font.Font(None, 43)
+    small_font = pygame.font.Font(None, 28)
+
+    rex = Rex()
+    chicken = None
+    score = 0
+    bite_done = False
+    running = True
+
+    while running:
+        dt = min(clock.tick(FPS) / 1000.0, 0.05)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                # A mouse click is the desktop equivalent of a screen touch.
+                if chicken is None and rex.state == "idle":
+                    chicken = Chicken(event.pos[0])
+                    bite_done = False
+
+        if chicken is not None:
+            chicken.update(dt)
+            if chicken.landed and rex.state == "idle":
+                rex.start_chase(chicken.x)
+
+        rex.update(dt)
+        if chicken is not None and rex.attack_has_landed() and not bite_done:
+            chicken = None
+            bite_done = True
+            score += 1
+        rex.finish_attack()
+
+        draw_background(screen)
+        if chicken is not None:
+            chicken.draw(screen)
+        rex.draw(screen)
+
+        score_surface = big_font.render(f"Score: {score}", True, BLACK)
+        help_surface = small_font.render("Tap or click to drop a chicken", True, BLACK)
+        screen.blit(score_surface, (28, 25))
+        screen.blit(help_surface, (28, 70))
+        if rex.state != "idle":
+            wait_surface = small_font.render("The T. rex is hunting...", True, BLACK)
+            screen.blit(wait_surface, (28, 105))
+
+        pygame.display.flip()
+
+    pygame.quit()
+    sys.exit()
+
+
+if __name__ == "__main__":
+    m
