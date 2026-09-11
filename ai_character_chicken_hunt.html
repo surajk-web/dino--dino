@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Character Chicken Hunt</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #14231d; font-family: Arial, sans-serif; }
+    canvas { width: min(1000px, 100vw); height: auto; display: block; cursor: crosshair; touch-action: manipulation; }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="1000" height="600" aria-label="Click to drop chickens. Double-click to drop a cartoon nuke."></canvas>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height, GROUND = 500;
+    const character = new Image();
+    const chickenPicture = new Image();
+    character.src = 'ai_character.png';
+    chickenPicture.src = 'ai_chicken.png';
+    const CHICKEN_W = 52, CHICKEN_H = 112;
+    const chickens = [];
+    let score = 0, characterX = 160, state = 'idle', target = null, attackTime = 0, runTime = 0, nuke = null, pendingClick = null, last = 0;
+
+    function point(event) {
+      const box = canvas.getBoundingClientRect();
+      return { x: Math.max(35, Math.min(W - 35, (event.clientX - box.left) * W / box.width)) };
+    }
+    function beep(notes) {
+      const audio = new (window.AudioContext || window.webkitAudioContext)();
+      notes.forEach(([frequency, start, duration]) => {
+        const oscillator = audio.createOscillator(), gain = audio.createGain();
+        oscillator.frequency.value = frequency; oscillator.type = 'square';
+        gain.gain.setValueAtTime(0.08, audio.currentTime + start);
+        gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + start + duration);
+        oscillator.connect(gain).connect(audio.destination); oscillator.start(audio.currentTime + start); oscillator.stop(audio.currentTime + start + duration);
+      });
+    }
+    function addChicken(event) {
+      pendingClick = null;
+      chickens.push({x: point(event).x, y: -CHICKEN_H, v: 0, landed: false, wing: 0});
+    }
+    canvas.addEventListener('click', event => {
+      if (!pendingClick) pendingClick = setTimeout(() => addChicken(event), 180);
+    });
+    canvas.addEventListener('dblclick', event => {
+      if (pendingClick) { clearTimeout(pendingClick); pendingClick = null; }
+      if (!nuke) nuke = {x: point(event).x, y: -55, v: 0, exploding: false, t: 0, blasted: false};
+    });
+
+    function update(dt) {
+      for (const chicken of chickens) {
+        chicken.wing += dt * 12;
+        if (!chicken.landed) { chicken.v += 1700 * dt; chicken.y += chicken.v * dt; if (chicken.y >= GROUND - CHICKEN_H) { chicken.y = GROUND - CHICKEN_H; chicken.landed = true; } }
+      }
+      if (nuke) {
+        if (!nuke.exploding) { nuke.v += 1800 * dt; nuke.y += nuke.v * dt; if (nuke.y >= GROUND - 42) { nuke.y = GROUND - 42; nuke.exploding = true; } }
+        else { nuke.t += dt; if (nuke.t > .16 && !nuke.blasted) { score += chickens.length; chickens.length = 0; state = 'idle'; target = null; nuke.blasted = true; beep([[230,0,.11],[170,.11,.15],[105,.26,.21]]); } if (nuke.t > .76) nuke = null; }
+      }
+      if (state === 'idle') { const landed = chickens.filter(c => c.landed); if (landed.length) { target = landed.reduce((best, c) => Math.abs(c.x-characterX) < Math.abs(best.x-characterX) ? c : best); state = 'running'; } }
+      if (state === 'running' && target) { const wanted = target.x - 70; const distance = wanted - characterX; characterX += Math.sign(distance) * Math.min(470 * dt, Math.abs(distance)); runTime += dt; if (Math.abs(distance) < 1) { state = 'attacking'; attackTime = 0; } }
+      if (state === 'attacking') { attackTime += dt; if (attackTime > .32 && target) { const index = chickens.indexOf(target); if (index >= 0) { chickens.splice(index, 1); score++; beep([[760,0,.06],[1050,.06,.06],[480,.12,.13]]); } target = null; } if (attackTime > .9) state = 'idle'; }
+    }
+
+    function drawChicken(c) {
+      if (c.landed) { ctx.fillStyle='#27753a'; ctx.beginPath(); ctx.ellipse(c.x, GROUND, 33, 7, 0, 0, Math.PI*2); ctx.fill(); }
+      if (chickenPicture.complete) ctx.drawImage(chickenPicture, c.x - CHICKEN_W / 2, c.y, CHICKEN_W, CHICKEN_H);
+    }
+    function drawCharacter() {
+      const bob = state==='running' ? Math.sin(runTime*15)*5 : 0;
+      ctx.fillStyle='#28743a';ctx.beginPath();ctx.ellipse(characterX, GROUND, 80, 10, 0, 0, Math.PI*2);ctx.fill();
+      if (character.complete) ctx.drawImage(character, characterX-120, GROUND-198+bob, 240, 198);
+      if (state==='attacking' && attackTime<.42) { ctx.fillStyle='#e95a32';ctx.font='bold 18px Arial';ctx.fillText('CHOMP!', characterX+93, GROUND-140); }
+    }
+    function drawNuke() {
+      if (!nuke.exploding) { ctx.fillStyle='#6b7478';ctx.beginPath();ctx.ellipse(nuke.x,nuke.y,17,28,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e04b3f';ctx.fillRect(nuke.x-34,nuke.y-32,16,28);ctx.fillRect(nuke.x+18,nuke.y-32,16,28); }
+      else { const s=Math.min(160,28+nuke.t*410);ctx.fillStyle='#f35b35';ctx.beginPath();ctx.arc(nuke.x,GROUND,s,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ffdc4b';ctx.beginPath();ctx.arc(nuke.x,GROUND,s*.62,0,Math.PI*2);ctx.fill();ctx.fillStyle='#55251d';ctx.font='bold 25px Arial';ctx.fillText('BOOM!',nuke.x-43,GROUND+8); }
+    }
+    function draw() {
+      ctx.fillStyle='#8bd3f7';ctx.fillRect(0,0,W,H);ctx.fillStyle='#ffe67a';ctx.beginPath();ctx.arc(885,90,45,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(210,90,100,28,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#3ea856';ctx.fillRect(0,GROUND,W,H-GROUND);ctx.fillStyle='#237a3c';ctx.fillRect(0,GROUND,W,11);
+      if(nuke) drawNuke(); chickens.forEach(drawChicken); drawCharacter();
+      ctx.fillStyle='#16251b';ctx.font='bold 24px Arial';ctx.fillText('Score: '+score,28,38);ctx.font='16px Arial';ctx.fillText(state==='idle' ? 'Click: chicken   |   Double-click: cartoon nuke' : 'The character is hunting...',28,70);
+    }
+    function loop(now) { const dt=Math.min(.05,(now-last)/1000||0);last=now;update(dt);draw();requestAnimationFrame(loop); }
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
