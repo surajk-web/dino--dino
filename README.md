@@ -48,7 +48,8 @@ For Software:
 For Software:
 
 # Screenshots (Add at least 3)
-![Screenshot1](Add screenshot 1 here with proper name)
+![<img width="630" height="1375" alt="ai_chicken" src="https://github.com/user-attachments/assets/90d2d903-9afd-4b73-80ec-035f22865440" />
+](Add screenshot 1 here with proper name)
 *Add caption explaining what this shows*
 
 ![Screenshot2](Add screenshot 2 here with proper name)
