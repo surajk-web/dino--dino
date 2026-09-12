@@ -2,31 +2,31 @@
 
 
 
-# [Project Name] 🎯
+# [Project dino dino] 🎯
 
 
 ## Basic Details
-### Team Name: [Name]
+### Team Name: [duo]
 
 
 ### Team Members
-- Team Lead: [Name] - [College]
-- Member 2: [Name] - [College]
-- Member 3: [Name] - [College]
+- Team Lead: [suraj] - [College]
+- Member 2: [suraj] - [College]
+- Member 3: [alfaise] - [College]
 
 ### Project Description
-[2-3 lines about what your project does]
+[a advanced dino which goes behind chicken when we touch any where in the display with mousepoint]
 
 ### The Problem (that doesn't exist)
-[What ridiculous problem are you solving?]
+[there chance to crash when tyring to edit code]
 
 ### The Solution (that nobody asked for)
-[How are you solving it? Keep it fun!]
+[there will no crash in this code]
 
 ## Technical Details
 ### Technologies/Components Used
 For Software:
-- [Languages used]
+- [python]
 - [Frameworks used]
 - [Libraries used]
 - [Tools used]
@@ -89,7 +89,7 @@ For Hardware:
 [Add any extra demo materials/links]
 
 ## Team Contributions
-- [Name 1]: [Specific contributions]
+- [alfaise]: [custom mods desining]
 - [Name 2]: [Specific contributions]
 - [Name 3]: [Specific contributions]
 
